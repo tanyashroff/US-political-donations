@@ -1,0 +1,5 @@
+# exclude everything in the data folder
+data/*
+
+# to preserve the file structure, keep data/.gitkeep
+!data/.gitkeep
