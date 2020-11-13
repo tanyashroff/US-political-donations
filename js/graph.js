@@ -5,8 +5,14 @@ var width = +svg.attr('width');
 var height = +svg.attr('height');
 
 var colorScale = d3.scaleOrdinal(d3.schemeTableau10);
-var linkScale = d3.scaleSqrt().range([1,10]);
+var linkScale = d3.scaleLinear().range([2,10]);
 var selectedNode;
+
+var linkG = svg.append('g')
+    .attr('class', 'links-group');
+
+var nodeG = svg.append('g')
+    .attr('class', 'nodes-group');
 
 function includedNodes(nodes, links) {
   var relevantNodes = extractNodes(includedLinks(links));
@@ -102,60 +108,88 @@ d3.dsv("|", '/data/mini_dataset/transactions/cm_trans/cm_trans20.txt').then(func
     }
     //console.log(network)
     dataset = network
-    linkScale.domain(d3.extent(network.links, function(d){ return d.value;}));
 
     // For Testing
     selectedNode = network.nodes[0];
     selectedNode.fx = width / 2;
     selectedNode.fy = height / 2
-    var linkG = svg.append('g')
-        .attr('class', 'links-group');
 
-    var nodeG = svg.append('g')
-        .attr('class', 'nodes-group');
 
-    var linkEnter = linkG.selectAll('.link')
-    .data(includedLinks(network.links))
-    .enter()
-    .append('line')
-    .attr('class', 'link')
+    updateVisualization()
+})
+
+function updateVisualization() {
+    linkScale.domain(d3.extent(includedLinks(network.links), function(d){ return d.value;}));
+
+    var links = linkG.selectAll('.link')
+      .data(includedLinks(network.links))
+
+    var linkEnter = links.enter()
+      .append('line')
+      .attr('class', 'link')
+
+
+    var nodes = nodeG.selectAll('.node')
+        .data(includedNodes(network.nodes, network.links))
+
+    var nodeEnter = nodes.enter()
+    .append('circle')
+    .attr('class', 'node')
+
+
+    links.merge(linkEnter)
     .attr('stroke-width', function(d) {
         return linkScale(d.value);
     });
 
-    var nodeEnter = nodeG.selectAll('.node')
-        .data(includedNodes(network.nodes, network.links))
-        .enter()
-        .append('circle')
-        .attr('class', 'node')
-        .attr('r', 20)
-        .style('fill', function(d) {
-            return colorScale(d.group);
-        });
+    nodes.merge(nodeEnter)
+    .attr('r', 20)
+    .style('fill', function(d) {
+        return colorScale(d.group);
+    });
+
+    nodes.exit().remove();
+    links.exit().remove();
+
+    function tickSimulation() {
+      linkEnter
+      .attr('x1', function(d) {return d.source.x;})
+      .attr('y1', function(d) {return d.source.y;})
+      .attr('x2', function(d) { return d.target.x;})
+      .attr('y2', function(d) { return d.target.y;});
+
+      nodeEnter
+      .attr('cx', function(d) { return d.x;})
+      .attr('cy', function(d) { return d.y;});
+        console.log(selectedNode.x, selectedNode.y)
+    }
+
 
     simulation
-        .nodes(dataset.nodes)
+        .nodes(includedNodes(network.nodes, network.links))
         .on('tick', tickSimulation);
 
     simulation
         .force('link')
-        .links(dataset.links);
-
-    function tickSimulation() {
-        linkEnter
-            .attr('x1', function(d) {return d.source.x;})
-            .attr('y1', function(d) {return d.source.y;})
-            .attr('x2', function(d) { return d.target.x;})
-            .attr('y2', function(d) { return d.target.y;});
-
-        nodeEnter
-            .attr('cx', function(d) { return d.x;})
-            .attr('cy', function(d) { return d.y;});
-        console.log(selectedNode.x, selectedNode.y)
-    }
+        .links(includedLinks(network.links));
 
     nodeEnter.on('mouseover', node_tip.show)
       .on('mouseout', node_tip.hide);
     linkEnter.on('mouseover', link_tip.show)
       .on('mouseout', link_tip.hide);
-})
+
+    nodeEnter.on('click', function(d) {
+      console.log(d);
+      selectedNode.fx = null
+      selectedNode.fy = null
+      selectedNode = d;
+      selectedNode.fx = width / 2
+      selectedNode.fy = height / 2
+      selectedNode.x = width / 2
+      selectedNode.y = height / 2
+      updateVisualization()
+      simulation.alpha(1).restart();
+      node_tip.hide()
+      link_tip.hide()
+    })
+}
