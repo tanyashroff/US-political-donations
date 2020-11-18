@@ -5,7 +5,7 @@ var width = +svg.attr('width');
 var height = +svg.attr('height');
 
 var colorScale = d3.scaleOrdinal(d3.schemeTableau10);
-var linkScale = d3.scaleLinear().range([2,6]);
+var linkScale = d3.scaleLinear().range([2,8]);
 var selectedNode;
 
 var linkG = svg.append('g')
@@ -56,15 +56,7 @@ links.forEach(link => {
   link.type = "far"
 })
 
-  var newLinks = []
-  links.forEach(link => {
-    if (link.source === selectedNode || link.target === selectedNode) {
-      link.type = "close"
-      link.source.type = "close"
-      link.target.type = "close"
-      newLinks.push(link)
-    }
-  })
+  var newLinks = immediateLinks(links)
   var newerLinks = [...newLinks];
   links.forEach(link => {
     // Ignore included links
@@ -84,9 +76,30 @@ links.forEach(link => {
   newerLinks.unshift({
     "source": dummy1,
     "target": dummy1,
-    "value": 1000
+    "value": 1000,
+    "type": "dummy"
   })
   return newerLinks;
+}
+
+function immediateLinks(links) {
+  //console.log(selectedNode)
+  links.forEach(link => {
+    link.source.type = "far"
+    link.target.type = "far"
+    link.type = "far"
+  })
+
+  var newLinks = []
+  links.forEach(link => {
+    if (link.source === selectedNode || link.target === selectedNode) {
+      link.type = "close"
+      link.source.type = "close"
+      link.target.type = "close"
+      newLinks.push(link)
+    }
+  })
+  return newLinks;
 }
 
 function extractNodes(links) {
@@ -105,7 +118,7 @@ var simulation = d3.forceSimulation()
       if (d.type === "dummy") {
         return 0;
       }
-      return d === selectedNode ? -10000 : -30;
+      return d === selectedNode ? -2000 : -30;
     }))
     .force('center', d3.forceCenter(width / 2, height / 2))
     .force('collide', d3.forceCollide(50).radius(function(d, i) {
@@ -116,8 +129,7 @@ var simulation = d3.forceSimulation()
     }))
     .force('radial', d3.forceRadial(60).strength(function(d) {
       if (d.type === "dummy") {
-        console.log(d);
-        return 0.1;
+        return .10;
       }
       return 0.1;
     }))
@@ -184,16 +196,16 @@ d3.dsv("|", '/data/mini_dataset/transactions/cm_trans/cm_trans20.txt').then(func
 
     // For Testing
     selectedNode = network.nodes[0];
-    //selectedNode.fx = width / 2;
-    //selectedNode.fy = height / 2
-    //selectedNode.group = 2
+    selectedNode.fx = width / 2;
+    selectedNode.fy = height / 2
+    selectedNode.group = 2
 
 
     updateVisualization()
 })
 
 function updateVisualization() {
-    linkScale.domain(d3.extent(includedLinks(network.links), function(d){ return d.value;}));
+    linkScale.domain(d3.extent(includedLinks(network.links).slice(1), function(d){ return d.value;}));
 
     var links = linkG.selectAll('.link')
       .data(includedLinks(network.links), function(d){
@@ -221,8 +233,13 @@ function updateVisualization() {
         return linkScale(d.value);
     })
     .attr('opacity', function(link) {
-      return link.type === "close" ? 1 : 0.1
-    });
+      if (link.type == "dummy") {
+        return 0;
+      } else if (link.type == "close") {
+        return 1;
+      } else if (link.type == "far") {
+        return 0.1;
+      }    });
 
     linkEnter.attr('marker-end','url(#arrowhead)')
 
@@ -233,7 +250,13 @@ function updateVisualization() {
         return colorScale(d.group);
     })
     .attr('opacity', function(node) {
-      return node.type === "close" ? 1 : 0.1
+      if (node.type == "dummy") {
+        return 0;
+      } else if (node.type == "close") {
+        return 1;
+      } else if (node.type == "far") {
+        return 0.1;
+      }
     });
 
 
@@ -274,17 +297,17 @@ function updateVisualization() {
     nodeEnter.on('click', function(d) {
       simulation.stop()
       //console.log(simulation.nodes());
-      //delete selectedNode.fx
-      //delete selectedNode.fy
-      //selectedNode.vx = 1
-      //selectedNode.vy = 1
-    //  selectedNode.index = d.index
-      //selectedNode.group = 1
+      delete selectedNode.fx
+      delete selectedNode.fy
+      selectedNode.vx = 1
+      selectedNode.vy = 1
+      selectedNode.index = d.index
+      selectedNode.group = 1
       selectedNode = d;
-      //selectedNode.group = 2
-      //selectedNode.fx = width / 2
-      //selectedNode.fy = height / 2
-      //selectedNode.index = 0;
+      selectedNode.group = 2
+      selectedNode.fx = width / 2
+      selectedNode.fy = height / 2
+      selectedNode.index = 0;
       updateVisualization()
       simulation.alpha(1).restart();
       node_tip.hide()
