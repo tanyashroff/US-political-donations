@@ -13,7 +13,15 @@ var linkG = svg.append('g')
 
 var nodeG = svg.append('g')
     .attr('class', 'nodes-group');
-
+var dummy1 = {
+  "id": "Dummy1",
+  "group": 2,
+  "type": "dummy"
+}
+var dummy2 = {
+  "id": "Dummy2",
+  "group": 2,
+}
 var markers = svg.append('defs').append('marker')
         markers.attrs({'id':'arrowhead',
             'viewBox':'-0 -5 10 10',
@@ -34,16 +42,22 @@ function includedNodes(nodes, links) {
   var relevantNodes = extractNodes(includedLinks(links));
   relevantNodes.sort(function(x,y){ return x == selectedNode ? -1 : y == selectedNode ? 1 : 0; });
   //console.log("R");
+  relevantNodes.unshift(dummy1)
+  //relevantNodes.unshift(dummy2)
   console.log(relevantNodes);
   return relevantNodes;
 }
 
 function includedLinks(links) {
   //console.log(selectedNode)
+links.forEach(link => {
+  link.source.type = "far"
+  link.target.type = "far"
+  link.type = "far"
+})
+
   var newLinks = []
   links.forEach(link => {
-    link.source.type = link.source.type!= undefined && link.source.type === "close" ? "close" : "far"
-    link.target.type =  link.target.type!= undefined && link.target.type === "close" ? "close" : "far"
     if (link.source === selectedNode || link.target === selectedNode) {
       link.type = "close"
       link.source.type = "close"
@@ -66,6 +80,12 @@ function includedLinks(links) {
       newerLinks.push(link)
     }
   })
+  console.log(newerLinks)
+  newerLinks.unshift({
+    "source": dummy1,
+    "target": dummy1,
+    "value": 1000
+  })
   return newerLinks;
 }
 
@@ -81,11 +101,25 @@ console.log(width)
 console.log(height)
 var simulation = d3.forceSimulation()
     .force('link', d3.forceLink().id(function(d) { return d.id; }))
-    .force('charge', d3.forceManyBody().strength(function(d, i) { return d === selectedNode ? -10000 : -30; }))
+    .force('charge', d3.forceManyBody().strength(function(d, i) {
+      if (d.type === "dummy") {
+        return 0;
+      }
+      return d === selectedNode ? -10000 : -30;
+    }))
     .force('center', d3.forceCenter(width / 2, height / 2))
-    .force('collide', d3.forceCollide(50))
+    .force('collide', d3.forceCollide(50).radius(function(d, i) {
+      if (d.type === "dummy") {
+        return 0;
+      }
+      return 50;
+    }))
     .force('radial', d3.forceRadial(60).strength(function(d) {
+      if (d.type === "dummy") {
+        console.log(d);
         return 0.1;
+      }
+      return 0.1;
     }))
 
 // Define the div for the tooltip
@@ -150,9 +184,9 @@ d3.dsv("|", '/data/mini_dataset/transactions/cm_trans/cm_trans20.txt').then(func
 
     // For Testing
     selectedNode = network.nodes[0];
-    selectedNode.fx = width / 2;
-    selectedNode.fy = height / 2
-    selectedNode.group = 2
+    //selectedNode.fx = width / 2;
+    //selectedNode.fy = height / 2
+    //selectedNode.group = 2
 
 
     updateVisualization()
@@ -162,10 +196,14 @@ function updateVisualization() {
     linkScale.domain(d3.extent(includedLinks(network.links), function(d){ return d.value;}));
 
     var links = linkG.selectAll('.link')
-      .data(includedLinks(network.links))
+      .data(includedLinks(network.links), function(d){
+            return d.id;
+        })
 
     var nodes = nodeG.selectAll('.node')
-        .data(includedNodes(network.nodes, network.links))
+        .data(includedNodes(network.nodes, network.links), function(d){
+            return d;
+        })
 
     console.log(nodes.filter(function (d, i) { return i === 1;}))
     //links.filter(function (d, i) { return i === 0;}).remove()
@@ -221,12 +259,12 @@ function updateVisualization() {
 
 
     simulation
-        .nodes(includedNodes(network.nodes, network.links))
+        .nodes(includedNodes(network.nodes, network.links).slice(1))
         .on('tick', tickSimulation);
 
     simulation
         .force('link')
-        .links(includedLinks(network.links));
+        .links(includedLinks(network.links).slice(1));
 
     nodeEnter.on('mouseover', node_tip.show)
       .on('mouseout', node_tip.hide);
@@ -235,23 +273,23 @@ function updateVisualization() {
 
     nodeEnter.on('click', function(d) {
       simulation.stop()
-      console.log(simulation.nodes());
-      delete selectedNode.fx
-      delete selectedNode.fy
-      selectedNode.vx = 1
-      selectedNode.vy = 1
-      selectedNode.index = d.index
-      selectedNode.group = 1
+      //console.log(simulation.nodes());
+      //delete selectedNode.fx
+      //delete selectedNode.fy
+      //selectedNode.vx = 1
+      //selectedNode.vy = 1
+    //  selectedNode.index = d.index
+      //selectedNode.group = 1
       selectedNode = d;
-      selectedNode.group = 2
-      selectedNode.fx = width / 2
-      selectedNode.fy = height / 2
-      selectedNode.index = 0;
+      //selectedNode.group = 2
+      //selectedNode.fx = width / 2
+      //selectedNode.fy = height / 2
+      //selectedNode.index = 0;
       updateVisualization()
       simulation.alpha(1).restart();
       node_tip.hide()
       link_tip.hide()
-      console.log(simulation.nodes());
+      //console.log(simulation.nodes());
     })
 
 
