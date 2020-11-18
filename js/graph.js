@@ -34,18 +34,39 @@ function includedNodes(nodes, links) {
   var relevantNodes = extractNodes(includedLinks(links));
   relevantNodes.sort(function(x,y){ return x == selectedNode ? -1 : y == selectedNode ? 1 : 0; });
   //console.log("R");
-  //console.log(relevantNodes);
+  console.log(relevantNodes);
   return relevantNodes;
 }
 
 function includedLinks(links) {
+  //console.log(selectedNode)
   var newLinks = []
   links.forEach(link => {
+    link.source.type = link.source.type!= undefined && link.source.type === "close" ? "close" : "far"
+    link.target.type =  link.target.type!= undefined && link.target.type === "close" ? "close" : "far"
     if (link.source === selectedNode || link.target === selectedNode) {
+      link.type = "close"
+      link.source.type = "close"
+      link.target.type = "close"
       newLinks.push(link)
     }
   })
-  return newLinks;
+  var newerLinks = [...newLinks];
+  links.forEach(link => {
+    // Ignore included links
+    if (link.source === selectedNode || link.target === selectedNode) {
+      return;
+    }
+    var containsSource = newLinks.some(otherLink => otherLink.source === link.source ||
+                                                    otherLink.target === link.source)
+    var containsTarget = newLinks.some(otherLink => otherLink.source === link.target ||
+                                                    otherLink.target === link.target)
+    if (containsSource || containsTarget) {
+      link.type = "far"
+      newerLinks.push(link)
+    }
+  })
+  return newerLinks;
 }
 
 function extractNodes(links) {
@@ -160,6 +181,9 @@ function updateVisualization() {
     links.merge(linkEnter)
     .attr('stroke-width', function(d) {
         return linkScale(d.value);
+    })
+    .attr('opacity', function(link) {
+      return link.type === "close" ? 1 : 0.1
     });
 
     linkEnter.attr('marker-end','url(#arrowhead)')
@@ -169,7 +193,11 @@ function updateVisualization() {
     .attr('r', 20)
     .style('fill', function(d) {
         return colorScale(d.group);
+    })
+    .attr('opacity', function(node) {
+      return node.type === "close" ? 1 : 0.1
     });
+
 
 
 
