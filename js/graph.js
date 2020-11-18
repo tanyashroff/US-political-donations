@@ -8,6 +8,27 @@ var colorScale = d3.scaleOrdinal(d3.schemeTableau10);
 var linkScale = d3.scaleLinear().range([2,8]);
 var selectedNode;
 
+let committees = new Map()
+d3.dsv("|", '/data/mini_dataset/committee/cm20.txt').then(function(dataset) {
+  console.log("committee")
+  console.log(dataset)
+
+  dataset.forEach((item, i) => {
+    committees.set(item.CMTE_ID, item)
+  });
+  console.log(committees)
+})
+let candidates = new Map()
+d3.dsv("|", '/data/mini_dataset/candidate/cn20.txt').then(function(dataset) {
+  console.log("candidate")
+  console.log(dataset)
+
+  dataset.forEach((item, i) => {
+    candidates.set(item.CAND_ID, item)
+  });
+  console.log(candidates)
+})
+
 var linkG = svg.append('g')
     .attr('class', 'links-group');
 
@@ -134,11 +155,25 @@ var simulation = d3.forceSimulation()
       return 0.1;
     }))
 
+function toTitleCase(sentence) {
+  return sentence.toLowerCase().split(" ").map((word) => {
+      return word[0].toUpperCase() + word.substring(1);
+    }).join(" ");
+}
+
 // Define the div for the tooltip
 var node_tip = d3.tip()
       .attr("class", "d3-tip")
       .offset([-8, 0])
-      .html(function(d) { return "Name: " + d.id});
+      .html(function(d) {
+        if (committees.has(d.id)) {
+          return toTitleCase(committees.get(d.id).CMTE_NM);
+        } else if (candidates.has(d.id)) {
+          return toTitleCase(candidates.get(d.id).CAND_NAME);
+        }
+
+        return "ID: " + d.id
+      });
 svg.call(node_tip);
 
 // Define the div for the tooltip
