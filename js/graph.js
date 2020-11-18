@@ -5,7 +5,7 @@ var width = +svg.attr('width');
 var height = +svg.attr('height');
 
 var colorScale = d3.scaleOrdinal(d3.schemeTableau10);
-var linkScale = d3.scaleLinear().range([2,10]);
+var linkScale = d3.scaleLinear().range([2,6]);
 var selectedNode;
 
 var linkG = svg.append('g')
@@ -13,6 +13,22 @@ var linkG = svg.append('g')
 
 var nodeG = svg.append('g')
     .attr('class', 'nodes-group');
+
+var markers = svg.append('defs').append('marker')
+        markers.attrs({'id':'arrowhead',
+            'viewBox':'-0 -5 10 10',
+            'refX':13,
+            'refY':0,
+            'orient':'auto',
+            'markerWidth':30,
+            'markerHeight':30,
+            'markerUnits':"userSpaceOnUse",
+            'xoverflow':'visible'})
+        .append('svg:path')
+        .attr('d', 'M 0,-5 L 8 ,0 L 0,5')
+        .attr('fill', '#999')
+        .attr('stroke-width', 5)
+        .style('stroke','none');
 
 function includedNodes(nodes, links) {
   var relevantNodes = extractNodes(includedLinks(links));
@@ -146,6 +162,9 @@ function updateVisualization() {
         return linkScale(d.value);
     });
 
+    linkEnter.attr('marker-end','url(#arrowhead)')
+
+
     nodes.merge(nodeEnter)
     .attr('r', 20)
     .style('fill', function(d) {
@@ -160,6 +179,8 @@ function updateVisualization() {
       .attr('y1', function(d) {return d.source.y;})
       .attr('x2', function(d) { return d.target.x;})
       .attr('y2', function(d) { return d.target.y;});
+
+
 
       nodeEnter
       .attr('cx', function(d) { return d.x;})
@@ -204,6 +225,7 @@ function updateVisualization() {
       link_tip.hide()
       console.log(simulation.nodes());
     })
+
 
     //console.log(network)
 }
