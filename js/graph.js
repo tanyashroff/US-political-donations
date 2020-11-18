@@ -17,6 +17,8 @@ var nodeG = svg.append('g')
 function includedNodes(nodes, links) {
   var relevantNodes = extractNodes(includedLinks(links));
   relevantNodes.sort(function(x,y){ return x == selectedNode ? -1 : y == selectedNode ? 1 : 0; });
+  //console.log("R");
+  //console.log(relevantNodes);
   return relevantNodes;
 }
 
@@ -60,7 +62,7 @@ svg.call(node_tip);
 var link_tip = d3.tip()
       .attr("class", "d3-tip")
       .offset([-8, 0])
-      .html(function(d) { console.log(d);
+      .html(function(d) {
         const formatter = new Intl.NumberFormat('en-US', {
           style: 'currency',
           currency: 'USD',
@@ -113,6 +115,7 @@ d3.dsv("|", '/data/mini_dataset/transactions/cm_trans/cm_trans20.txt').then(func
     selectedNode = network.nodes[0];
     selectedNode.fx = width / 2;
     selectedNode.fy = height / 2
+    selectedNode.group = 2
 
 
     updateVisualization()
@@ -124,18 +127,19 @@ function updateVisualization() {
     var links = linkG.selectAll('.link')
       .data(includedLinks(network.links))
 
-    var linkEnter = links.enter()
-      .append('line')
-      .attr('class', 'link')
-
-
     var nodes = nodeG.selectAll('.node')
         .data(includedNodes(network.nodes, network.links))
+
+    console.log(nodes.filter(function (d, i) { return i === 1;}))
+    //links.filter(function (d, i) { return i === 0;}).remove()
 
     var nodeEnter = nodes.enter()
     .append('circle')
     .attr('class', 'node')
 
+    var linkEnter = links.enter()
+      .append('line')
+      .attr('class', 'link')
 
     links.merge(linkEnter)
     .attr('stroke-width', function(d) {
@@ -148,8 +152,7 @@ function updateVisualization() {
         return colorScale(d.group);
     });
 
-    nodes.exit().remove();
-    links.exit().remove();
+
 
     function tickSimulation() {
       linkEnter
@@ -161,8 +164,11 @@ function updateVisualization() {
       nodeEnter
       .attr('cx', function(d) { return d.x;})
       .attr('cy', function(d) { return d.y;});
-        console.log(selectedNode.x, selectedNode.y)
+        //console.log(selectedNode.x, selectedNode.y)
     }
+
+    nodes.exit().remove();
+    links.exit().remove();
 
 
     simulation
@@ -179,17 +185,25 @@ function updateVisualization() {
       .on('mouseout', link_tip.hide);
 
     nodeEnter.on('click', function(d) {
-      console.log(d);
-      selectedNode.fx = null
-      selectedNode.fy = null
+      simulation.stop()
+      console.log(simulation.nodes());
+      delete selectedNode.fx
+      delete selectedNode.fy
+      selectedNode.vx = 1
+      selectedNode.vy = 1
+      selectedNode.index = d.index
+      selectedNode.group = 1
       selectedNode = d;
+      selectedNode.group = 2
       selectedNode.fx = width / 2
       selectedNode.fy = height / 2
-      selectedNode.x = width / 2
-      selectedNode.y = height / 2
+      selectedNode.index = 0;
       updateVisualization()
       simulation.alpha(1).restart();
       node_tip.hide()
       link_tip.hide()
+      console.log(simulation.nodes());
     })
+
+    //console.log(network)
 }
