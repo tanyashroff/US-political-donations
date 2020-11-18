@@ -202,14 +202,14 @@ d3.dsv("|", '/data/mini_dataset/transactions/cm_trans/cm_trans20.txt').then(func
       if (node1 === undefined) {
         node1 = {
           "id": d.SOURCE_ID,
-          "group": 1,
+          "group": committees.has(d.SOURCE_ID) ? 1 : 2,
         }
       }
       node2 = network.nodes.find(node => node.id === d.TARGET_ID)
       if (node2 === undefined) {
         node2 = {
           "id": d.TARGET_ID,
-          "group": 1,
+          "group": committees.has(d.TARGET_ID) ? 1 : 2,
         }
       }
 
@@ -233,7 +233,7 @@ d3.dsv("|", '/data/mini_dataset/transactions/cm_trans/cm_trans20.txt').then(func
     selectedNode = network.nodes[0];
     selectedNode.fx = width / 2;
     selectedNode.fy = height / 2
-    selectedNode.group = 2
+    //selectedNode.group = 2
 
 
     updateVisualization()
@@ -255,6 +255,25 @@ function updateVisualization() {
     console.log(nodes.filter(function (d, i) { return i === 1;}))
     //links.filter(function (d, i) { return i === 0;}).remove()
 
+    // nodes.enter()
+    // .append('defs')
+    // .append('pattern')
+    // .attrs({
+    //   "x": "0",
+    //   "y": "0",
+    //   "patternUnits":"userSpaceOnUse",
+    //   "height": "100",
+    //   "width": "100",
+    //   "id": "image",
+    // })
+    // .append('image')
+    // .attrs({
+    //   "xlink:href": 'https://cdn3.iconfinder.com/data/icons/business-and-finance-icons/512/Briefcase-512.png',
+    //   "x": "0",
+    //   "y": "0",
+    //   "width": "100",
+    //   "height": "100"
+    // })
     var nodeEnter = nodes.enter()
     .append('circle')
     .attr('class', 'node')
@@ -284,6 +303,7 @@ function updateVisualization() {
     .style('fill', function(d) {
         return colorScale(d.group);
     })
+    //.attr('fill', "url(#image)")
     .attr('opacity', function(node) {
       if (node.type == "dummy") {
         return 0;
@@ -292,7 +312,7 @@ function updateVisualization() {
       } else if (node.type == "far") {
         return 0.1;
       }
-    });
+    })
 
 
 
@@ -337,9 +357,9 @@ function updateVisualization() {
       selectedNode.vx = 1
       selectedNode.vy = 1
       selectedNode.index = d.index
-      selectedNode.group = 1
+      //selectedNode.group = 1
       selectedNode = d;
-      selectedNode.group = 2
+      //selectedNode.group = 2
       selectedNode.fx = width / 2
       selectedNode.fy = height / 2
       selectedNode.index = 0;
