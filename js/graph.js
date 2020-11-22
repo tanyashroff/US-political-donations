@@ -75,8 +75,8 @@ var markers = svg.append('defs').append('marker')
             'refX':13,
             'refY':0,
             'orient':'auto',
-            'markerWidth':30,
-            'markerHeight':30,
+            'markerWidth':15,
+            'markerHeight':15,
             'markerUnits':"userSpaceOnUse",
             'xoverflow':'visible'})
         .append('svg:path')
@@ -87,7 +87,7 @@ var markers = svg.append('defs').append('marker')
 
 
 function includedNodes() {
-  var relevantNodes = extractNodes(includedLinks());
+  var relevantNodes = extractNodes(immediateLinks());
   relevantNodes.sort(function(x,y){ return x == selectedNode ? -1 : y == selectedNode ? 1 : 0; });
   //console.log("R");
   relevantNodes.unshift(dummy1)
@@ -249,9 +249,15 @@ d3.dsv("|", '/data/mini_dataset/transactions/agg_cm_trans/cm_trans18.txt').then(
 
       node1 = nodes.get(d.SRC_ID)
       if (node1 === undefined) {
+        var group = 0;
+        if (committees.has(d.SRC_ID)) {
+          group = 1;
+        } else if (candidates.has(d.SRC_ID)) {
+          group = 2
+        }
         node1 = {
           "id": d.SRC_ID,
-          "group": committees.has(d.SRC_ID) ? 1 : 2,
+          "group": group,
         }
         nodes.set(d.SRC_ID, node1)
         network["nodes"].push(node1)
@@ -260,9 +266,15 @@ d3.dsv("|", '/data/mini_dataset/transactions/agg_cm_trans/cm_trans18.txt').then(
       }
       node2 = nodes.get(d.TARGET_ID)
       if (node2 === undefined) {
+        var group = 0;
+        if (committees.has(d.TARGET_ID)) {
+          group = 1;
+        } else if (candidates.has(d.TARGET_ID)) {
+          group = 2
+        }
         node2 = {
           "id": d.TARGET_ID,
-          "group": committees.has(d.TARGET_ID) ? 1 : 2,
+          "group": group,
         }
         nodes.set(d.TARGET_ID, node2)
         network["nodes"].push(node2)
@@ -289,7 +301,7 @@ d3.dsv("|", '/data/mini_dataset/transactions/agg_cm_trans/cm_trans18.txt').then(
     dataset = network
 
     // For Testing
-    selectedNode = network.nodes[0];
+    selectedNode = network.nodes[50];
     selectedNode.fx = width / 2;
     selectedNode.fy = height / 2
     //selectedNode.group = 2
@@ -303,11 +315,11 @@ d3.dsv("|", '/data/mini_dataset/transactions/agg_cm_trans/cm_trans18.txt').then(
           return d === selectedNode ? -2000 : -30;
         }))
         .force('center', d3.forceCenter(width / 2, height / 2))
-        .force('collide', d3.forceCollide(50).radius(function(d, i) {
+        .force('collide', d3.forceCollide(25).radius(function(d, i) {
           if (d.type === "dummy") {
             return 0;
           }
-          return 50;
+          return 25;
         }))
         .force('radial', d3.forceRadial(60).strength(function(d) {
           if (d.type === "dummy") {
@@ -320,10 +332,10 @@ d3.dsv("|", '/data/mini_dataset/transactions/agg_cm_trans/cm_trans18.txt').then(
 })
 
 function updateVisualization() {
-    linkScale.domain(d3.extent(includedLinks().slice(1), function(d){ return d.value;}));
+    linkScale.domain(d3.extent(immediateLinks().slice(1), function(d){ return d.value;}));
 
     var links = linkG.selectAll('.link')
-      .data(includedLinks(), function(d){
+      .data(immediateLinks(), function(d){
             return d.id;
         })
 
@@ -378,7 +390,7 @@ function updateVisualization() {
 
 
     nodes.merge(nodeEnter)
-    .attr('r', 20)
+    .attr('r', 8)
     .style('fill', function(d) {
         return colorScale(d.group);
     })
@@ -422,7 +434,7 @@ function updateVisualization() {
 
     simulation
         .force('link')
-        .links(includedLinks().slice(1));
+        .links(immediateLinks().slice(1));
 
     nodeEnter.on('mouseover', node_tip.show)
       .on('mouseout', node_tip.hide);
