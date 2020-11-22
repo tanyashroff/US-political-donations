@@ -1,27 +1,53 @@
 console.log("Loaded graph.js script")
 
+var nodes = new Map()
+var nodeGraph = new Map()
+var linkGraph = new Map()
+
+Array.prototype.binarySearch = function (target, comparator) {
+    var l = 0,
+        h = this.length - 1,
+        m, comparison;
+    comparator = comparator || function (a, b) {
+        return (a < b ? -1 : (a > b ? 1 : 0)); /* default comparison method if one was not provided */
+    };
+    while (l <= h) {
+        m = (l + h) >>> 1; /* equivalent to Math.floor((l + h) / 2) but faster */
+        comparison = comparator(this[m], target);
+        if (comparison < 0) {
+            l = m + 1;
+        } else if (comparison > 0) {
+            h = m - 1;
+        } else {
+            return m;
+        }
+    }
+    return~l;
+};
+
 var svg = d3.select('svg');
 var width = +svg.attr('width');
 var height = +svg.attr('height');
 
 var colorScale = d3.scaleOrdinal(d3.schemeTableau10);
-var linkScale = d3.scaleLinear().range([2,8]);
+var linkScale = d3.scaleLinear().range([1,3]);
 var selectedNode;
 
 let committees = new Map()
-d3.dsv("|", '/data/mini_dataset/committee/cm20.txt').then(function(dataset) {
-  console.log("committee")
-  console.log(dataset)
+d3.dsv("|", '/data/mini_dataset/committees/cm18.txt').then(function(dataset) {
+  //console.log("committee")
+  //console.log(dataset)
 
   dataset.forEach((item, i) => {
     committees.set(item.CMTE_ID, item)
   });
+  //console.log(nodeTree)
   console.log(committees)
 })
 let candidates = new Map()
-d3.dsv("|", '/data/mini_dataset/candidate/cn20.txt').then(function(dataset) {
-  console.log("candidate")
-  console.log(dataset)
+d3.dsv("|", '/data/mini_dataset/candidates/cn18.txt').then(function(dataset) {
+  //console.log("candidate")
+  //console.log(dataset)
 
   dataset.forEach((item, i) => {
     candidates.set(item.CAND_ID, item)
@@ -59,25 +85,50 @@ var markers = svg.append('defs').append('marker')
         .attr('stroke-width', 5)
         .style('stroke','none');
 
-function includedNodes(nodes, links) {
-  var relevantNodes = extractNodes(includedLinks(links));
+
+function includedNodes() {
+  var relevantNodes = extractNodes(includedLinks());
   relevantNodes.sort(function(x,y){ return x == selectedNode ? -1 : y == selectedNode ? 1 : 0; });
   //console.log("R");
   relevantNodes.unshift(dummy1)
   //relevantNodes.unshift(dummy2)
-  console.log(relevantNodes);
+  //console.log(relevantNodes);
   return relevantNodes;
 }
 
-function includedLinks(links) {
-  //console.log(selectedNode)
-links.forEach(link => {
-  link.source.type = "far"
-  link.target.type = "far"
-  link.type = "far"
-})
+function includedLinks() {
+  //console.log(Array.from(linkGraph).some(link => link.source === undefined || link.target === undefined))
+  console.log(nodeGraph)
+  var testNodes = Array.from(nodeGraph.get(selectedNode.id))
+  var testLinks = immediateLinks()
+  testNodes.forEach(node => {
+    if (node != selectedNode) {
+      testLinks = testLinks.concat(Array.from(linkGraph.get(node)))
+    }
+  });
+  testLinks.forEach(link => {
+      link.source.type = "far"
+      link.target.type = "far"
+      link.type = "far"
+  })
+  testLinks.forEach(link => {
+    if (link.source === selectedNode || link.target === selectedNode) {
+      link.source.type = "close"
+      link.target.type = "close"
+      link.type = "close"
+    }
+  })
+  return testLinks
 
-  var newLinks = immediateLinks(links)
+
+  //links = links.slice(0,100)
+  links.forEach(link => {
+    link.source.type = "far"
+    link.target.type = "far"
+    link.type = "far"
+  })
+
+  var newLinks = immediateLinks()
   var newerLinks = [...newLinks];
   links.forEach(link => {
     // Ignore included links
@@ -103,8 +154,18 @@ links.forEach(link => {
   return newerLinks;
 }
 
-function immediateLinks(links) {
+function immediateLinks() {
   //console.log(selectedNode)
+  var testLinks = Array.from(linkGraph.get(selectedNode.id))
+  testLinks.forEach(link => {
+    link.type = "close"
+    link.source.type = "close"
+    link.target.type = "close"
+  });
+  return testLinks
+
+  console.log(links)
+
   links.forEach(link => {
     link.source.type = "far"
     link.target.type = "far"
@@ -133,27 +194,7 @@ function extractNodes(links) {
 }
 console.log(width)
 console.log(height)
-var simulation = d3.forceSimulation()
-    .force('link', d3.forceLink().id(function(d) { return d.id; }))
-    .force('charge', d3.forceManyBody().strength(function(d, i) {
-      if (d.type === "dummy") {
-        return 0;
-      }
-      return d === selectedNode ? -2000 : -30;
-    }))
-    .force('center', d3.forceCenter(width / 2, height / 2))
-    .force('collide', d3.forceCollide(50).radius(function(d, i) {
-      if (d.type === "dummy") {
-        return 0;
-      }
-      return 50;
-    }))
-    .force('radial', d3.forceRadial(60).strength(function(d) {
-      if (d.type === "dummy") {
-        return .10;
-      }
-      return 0.1;
-    }))
+var simulation;
 
 function toTitleCase(sentence) {
   return sentence.toLowerCase().split(" ").map((word) => {
@@ -167,11 +208,12 @@ var node_tip = d3.tip()
       .offset([-8, 0])
       .html(function(d) {
         if (committees.has(d.id)) {
-          return toTitleCase(committees.get(d.id).CMTE_NM);
+          return toTitleCase(committees.get(d.id).CMTE_NAME);
         } else if (candidates.has(d.id)) {
           return toTitleCase(candidates.get(d.id).CAND_NAME);
         }
-
+        console.log(candidates.get(d.id))
+        console.log(committees.get(d.id))
         return "ID: " + d.id
       });
 svg.call(node_tip);
@@ -190,43 +232,60 @@ var link_tip = d3.tip()
 svg.call(link_tip);
 
 //TODO fix selected node at center
-d3.dsv("|", '/data/mini_dataset/transactions/cm_trans/cm_trans20.txt').then(function(dataset) {
+d3.dsv("|", '/data/mini_dataset/transactions/agg_cm_trans/cm_trans18.txt').then(function(dataset) {
+    //dataset = dataset.slice(0,10)
     //console.log(dataset)
+
     network = {"links": [], "nodes": []}
+    var k = 0
     for (i in dataset) {
       d = dataset[i]
       if(i === "columns") {
         break;
       }
-      node1 = network.nodes.find(node => node.id === d.SOURCE_ID)
+      if (d.TARGET_ID === undefined || d.SRC_ID === undefined) {
+        continue;
+      }
+
+      node1 = nodes.get(d.SRC_ID)
       if (node1 === undefined) {
         node1 = {
-          "id": d.SOURCE_ID,
-          "group": committees.has(d.SOURCE_ID) ? 1 : 2,
+          "id": d.SRC_ID,
+          "group": committees.has(d.SRC_ID) ? 1 : 2,
         }
+        nodes.set(d.SRC_ID, node1)
+        network["nodes"].push(node1)
+        nodeGraph.set(d.SRC_ID, new Set())
+        linkGraph.set(d.SRC_ID, new Set())
       }
-      node2 = network.nodes.find(node => node.id === d.TARGET_ID)
+      node2 = nodes.get(d.TARGET_ID)
       if (node2 === undefined) {
         node2 = {
           "id": d.TARGET_ID,
           "group": committees.has(d.TARGET_ID) ? 1 : 2,
         }
+        nodes.set(d.TARGET_ID, node2)
+        network["nodes"].push(node2)
+        nodeGraph.set(d.TARGET_ID, new Set())
+        linkGraph.set(d.TARGET_ID, new Set())
       }
+      nodeGraph.get(d.SRC_ID).add(d.TARGET_ID)
+      nodeGraph.get(d.TARGET_ID).add(d.SRC_ID)
 
       link = {
         "source": node1,
         "target": node2,
-        "value": d.AMOUNT,
+        "value": d.SUM,
       }
+      linkGraph.get(d.TARGET_ID).add(link)
+      linkGraph.get(d.SRC_ID).add(link)
       network["links"].push(link)
-      if (!network.nodes.some(node => node.id === d.SOURCE_ID)) {
-        network["nodes"].push(node1)
-      }
-      if (!network.nodes.some(node => node.id === d.TARGET_ID)) {
-        network["nodes"].push(node2)
-      }
+      //console.log("1")
     }
-    //console.log(network)
+    console.log("done loading")
+    console.log(network)
+    console.log(linkGraph)
+
     dataset = network
 
     // For Testing
@@ -235,24 +294,44 @@ d3.dsv("|", '/data/mini_dataset/transactions/cm_trans/cm_trans20.txt').then(func
     selectedNode.fy = height / 2
     //selectedNode.group = 2
 
+    simulation = d3.forceSimulation()
+        .force('link', d3.forceLink().id(function(d) { return d.id; }))
+        .force('charge', d3.forceManyBody().strength(function(d, i) {
+          if (d.type === "dummy") {
+            return 0;
+          }
+          return d === selectedNode ? -2000 : -30;
+        }))
+        .force('center', d3.forceCenter(width / 2, height / 2))
+        .force('collide', d3.forceCollide(50).radius(function(d, i) {
+          if (d.type === "dummy") {
+            return 0;
+          }
+          return 50;
+        }))
+        .force('radial', d3.forceRadial(60).strength(function(d) {
+          if (d.type === "dummy") {
+            return .10;
+          }
+          return 0.1;
+        }))
 
     updateVisualization()
 })
 
 function updateVisualization() {
-    linkScale.domain(d3.extent(includedLinks(network.links).slice(1), function(d){ return d.value;}));
+    linkScale.domain(d3.extent(includedLinks().slice(1), function(d){ return d.value;}));
 
     var links = linkG.selectAll('.link')
-      .data(includedLinks(network.links), function(d){
+      .data(includedLinks(), function(d){
             return d.id;
         })
 
     var nodes = nodeG.selectAll('.node')
-        .data(includedNodes(network.nodes, network.links), function(d){
+        .data(includedNodes(), function(d){
             return d;
         })
 
-    console.log(nodes.filter(function (d, i) { return i === 1;}))
     //links.filter(function (d, i) { return i === 0;}).remove()
 
     // nodes.enter()
@@ -290,7 +369,7 @@ function updateVisualization() {
       if (link.type == "dummy") {
         return 0;
       } else if (link.type == "close") {
-        return 1;
+        return 0.8;
       } else if (link.type == "far") {
         return 0.1;
       }    });
@@ -308,7 +387,7 @@ function updateVisualization() {
       if (node.type == "dummy") {
         return 0;
       } else if (node.type == "close") {
-        return 1;
+        return 1.0;
       } else if (node.type == "far") {
         return 0.1;
       }
@@ -318,6 +397,7 @@ function updateVisualization() {
 
 
     function tickSimulation() {
+      console.log("tick")
       linkEnter
       .attr('x1', function(d) {return d.source.x;})
       .attr('y1', function(d) {return d.source.y;})
@@ -337,12 +417,12 @@ function updateVisualization() {
 
 
     simulation
-        .nodes(includedNodes(network.nodes, network.links).slice(1))
+        .nodes(includedNodes().slice(1))
         .on('tick', tickSimulation);
 
     simulation
         .force('link')
-        .links(includedLinks(network.links).slice(1));
+        .links(includedLinks().slice(1));
 
     nodeEnter.on('mouseover', node_tip.show)
       .on('mouseout', node_tip.hide);
